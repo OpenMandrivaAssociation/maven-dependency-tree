@@ -1,7 +1,7 @@
-%_javapackages_macros
+%{?_javapackages_macros:%_javapackages_macros}
 Name:          maven-dependency-tree
 Version:       2.1
-Release:       2.0%{?dist}
+Release:       2.1%{?dist}
 Summary:       Maven dependency tree artifact
 
 License:       ASL 2.0
