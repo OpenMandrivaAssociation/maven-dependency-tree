@@ -1,9 +1,9 @@
 %{?_javapackages_macros:%_javapackages_macros}
 Name:          maven-dependency-tree
 Version:       2.1
-Release:       2.1%{?dist}
+Release:       2.1
 Summary:       Maven dependency tree artifact
-
+Group:	Development/Java
 License:       ASL 2.0
 Url:           http://maven.apache.org/
 Source0:       http://repo1.maven.org/maven2/org/apache/maven/shared/%{name}/%{version}/%{name}-%{version}-source-release.zip
@@ -11,12 +11,16 @@ BuildArch:     noarch
 
 Patch0001:     0001-Port-to-Maven-3.1.0-and-Eclipse-Aether.patch
 
-BuildRequires: maven-local
-BuildRequires: aether-api >= 1:0
-BuildRequires: aether-util >= 1:0
-BuildRequires: maven-invoker-plugin
-BuildRequires: plexus-containers-component-metadata
-BuildRequires: plexus-containers-component-annotations
+BuildRequires:  maven-local
+BuildRequires:  mvn(org.apache.maven:maven-compat)
+BuildRequires:  mvn(org.apache.maven:maven-core)
+BuildRequires:  mvn(org.apache.maven.plugins:maven-invoker-plugin)
+BuildRequires:  mvn(org.apache.maven.shared:maven-plugin-testing-harness)
+BuildRequires:  mvn(org.apache.maven.shared:maven-shared-components:pom:)
+BuildRequires:  mvn(org.codehaus.plexus:plexus-component-annotations)
+BuildRequires:  mvn(org.codehaus.plexus:plexus-component-metadata)
+BuildRequires:  mvn(org.eclipse.aether:aether-api)
+BuildRequires:  mvn(org.eclipse.aether:aether-util)
 
 Provides:      maven-shared-dependency-tree = %{version}-%{release}
 Obsoletes:     maven-shared-dependency-tree < %{version}-%{release}
