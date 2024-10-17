@@ -5,7 +5,7 @@ Release:       2.2
 Summary:       Maven dependency tree artifact
 Group:	Development/Java
 License:       ASL 2.0
-Url:           http://maven.apache.org/
+Url:           https://maven.apache.org/
 Source0:       http://repo1.maven.org/maven2/org/apache/maven/shared/%{name}/%{version}/%{name}-%{version}-source-release.zip
 BuildArch:     noarch
 
