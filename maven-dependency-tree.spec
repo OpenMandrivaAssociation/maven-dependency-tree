@@ -1,79 +1,100 @@
-%{?_javapackages_macros:%_javapackages_macros}
-Name:          maven-dependency-tree
-Version:       2.1
-Release:       2.2
-Summary:       Maven dependency tree artifact
-Group:	Development/Java
-License:       ASL 2.0
-Url:           https://maven.apache.org/
-Source0:       http://repo1.maven.org/maven2/org/apache/maven/shared/%{name}/%{version}/%{name}-%{version}-source-release.zip
-BuildArch:     noarch
+Name:		maven-dependency-tree
+Version:	3.3.0
+Release:	1
+Summary:	Maven dependency tree API
+Group:		Development/Java
+License:	Apache-2.0
+URL:		https://maven.apache.org/shared/maven-dependency-tree/
+Source0:	https://github.com/apache/maven-dependency-tree/archive/refs/tags/maven-dependency-tree-%{version}.tar.gz#/maven-dependency-tree-%{version}.tar.gz
+BuildArch:	noarch
+BuildRequires:	python
+# The maven RPM holds the class jars. maven-components owns the coordinates.
+BuildRequires:	maven
+BuildRequires:	maven-components >= 3.10.0
+BuildRequires:	java-current-devel
+BuildRequires:	mvn(org.apache.maven:maven-core)
+BuildRequires:	mvn(org.apache.maven:maven-artifact)
+BuildRequires:	mvn(org.apache.maven:maven-model)
+BuildRequires:	mvn(org.apache.maven.resolver:maven-resolver-api)
+BuildRequires:	mvn(org.apache.maven.resolver:maven-resolver-util)
+BuildRequires:	mvn(org.slf4j:slf4j-api)
+BuildRequires:	mvn(javax.inject:javax.inject)
+BuildSystem:	maven
+BuildOption(install):	--file-name %{name}
 
-Patch0001:     0001-Port-to-Maven-3.1.0-and-Eclipse-Aether.patch
-
-BuildRequires:  maven-local
-BuildRequires:  mvn(org.apache.maven:maven-compat)
-BuildRequires:  mvn(org.apache.maven:maven-core)
-BuildRequires:  mvn(org.apache.maven.plugins:maven-invoker-plugin)
-BuildRequires:  mvn(org.apache.maven.shared:maven-plugin-testing-harness)
-BuildRequires:  mvn(org.apache.maven.shared:maven-shared-components:pom:)
-BuildRequires:  mvn(org.codehaus.plexus:plexus-component-annotations)
-BuildRequires:  mvn(org.codehaus.plexus:plexus-component-metadata)
-BuildRequires:  mvn(org.eclipse.aether:aether-api)
-BuildRequires:  mvn(org.eclipse.aether:aether-util)
-
-Provides:      maven-shared-dependency-tree = %{version}-%{release}
-Obsoletes:     maven-shared-dependency-tree < %{version}-%{release}
+Obsoletes:	maven-shared-dependency-tree < %{EVRD}
+Provides:	maven-shared-dependency-tree = %{EVRD}
 
 %description
-Apache Maven dependency tree artifact. Originally part of maven-shared.
-
-%package javadoc
-
-Summary:       Javadoc for %{name}
-
-%description javadoc
-This package contains javadoc for %{name}.
+A tree API for Maven project dependencies. 3.3.0 collects the graph
+with Maven Resolver and records whether a node is optional. This build
+uses Maven 3.10 and Resolver 2.0.24. Integration tests are not run.
 
 %prep
-%setup -q
-%patch0001 -p1
-%pom_add_dep org.apache.maven:maven-compat:3.1.0
-%pom_add_dep org.apache.maven:maven-artifact:2.2.1
+%autosetup -n maven-dependency-tree-maven-dependency-tree-%{version}
+rm -rf src/it .github
+python - <<'PY'
+import xml.etree.ElementTree as ET
+NS = "http://maven.apache.org/POM/4.0.0"
+ET.register_namespace("", NS)
 
-%build
-# we have no jmock yet
-%mvn_build -f
+def tag(name):
+    return "{" + NS + "}" + name
 
-%install
-%mvn_install
+def add(parent, name, text):
+    node = ET.SubElement(parent, tag(name))
+    node.text = text
+    return node
+
+root = ET.Element(tag("project"))
+add(root, "modelVersion", "4.0.0")
+add(root, "groupId", "org.apache.maven.shared")
+add(root, "artifactId", "maven-dependency-tree")
+add(root, "version", "%{version}")
+add(root, "name", "Apache Maven Dependency Tree")
+props = ET.SubElement(root, tag("properties"))
+add(props, "maven.compiler.release", "8")
+add(props, "project.build.sourceEncoding", "UTF-8")
+deps = ET.SubElement(root, tag("dependencies"))
+for group, artifact, version, scope in (
+    ("org.apache.maven", "maven-core", "3.10.0", "provided"),
+    ("org.apache.maven", "maven-artifact", "3.10.0", "provided"),
+    ("org.apache.maven", "maven-model", "3.10.0", "provided"),
+    ("org.apache.maven.resolver", "maven-resolver-api", "2.0.24", "provided"),
+    ("org.apache.maven.resolver", "maven-resolver-util", "2.0.24", ""),
+    ("org.slf4j", "slf4j-api", "1.7.36", ""),
+    ("javax.inject", "javax.inject", "1", ""),
+):
+    dep = ET.SubElement(deps, tag("dependency"))
+    add(dep, "groupId", group)
+    add(dep, "artifactId", artifact)
+    add(dep, "version", version)
+    if scope:
+        add(dep, "scope", scope)
+ET.ElementTree(root).write("pom.xml", encoding="utf-8", xml_declaration=True)
+PY
+# Sisu loads @Named classes from this index. The indexer plugin is not packaged.
+python - <<'PY'
+import re
+from pathlib import Path
+root = Path("src/main/java")
+names = []
+for path in sorted(root.rglob("*.java")):
+    text = path.read_text(encoding="utf-8", errors="replace")
+    match = re.search(r"\b(?:class|interface|enum)\s+([A-Za-z0-9_]+)", text)
+    if not match:
+        continue
+    if "@Named" not in text[:match.start()]:
+        continue
+    pkg = re.search(r"(?m)^package\s+([A-Za-z0-9_.]+)\s*;", text)
+    if not pkg:
+        continue
+    names.append(pkg.group(1) + "." + match.group(1))
+if names:
+    dest = Path("src/main/resources/META-INF/sisu")
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / "javax.inject.Named").write_text("\n".join(names) + "\n", encoding="utf-8")
+PY
 
 %files -f .mfiles
-%doc LICENSE NOTICE
-
-%files javadoc -f .mfiles-javadoc
-%doc LICENSE NOTICE
-
-%changelog
-* Sat Aug 03 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.1-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_20_Mass_Rebuild
-
-* Wed Jul 24 2013 Mikolaj Izdebski <mizdebsk@redhat.com> - 2.1-1
-- Remove dependency on Sonatype Aether
-- Resolves: rhbz#985704
-
-* Mon Jul 22 2013 Mikolaj Izdebski <mizdebsk@redhat.com> - 2.1-1
-- Update to upstream version 2.1
-
-* Thu Feb 14 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.0-4
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_19_Mass_Rebuild
-
-* Wed Feb 06 2013 Java SIG <java-devel@lists.fedoraproject.org> - 2.0-3
-- Update for https://fedoraproject.org/wiki/Fedora_19_Maven_Rebuild
-- Replace maven BuildRequires with maven-local
-
-* Thu Jan 10 2013 Mikolaj Izdebski <mizdebsk@redhat.com> - 2.0-2
-- Build with xmvn
-
-* Wed Oct 24 2012 Stanislav Ochotnicky <sochotnicky@redhat.com> - 2.0-1
-- Initial package
+%doc README.md

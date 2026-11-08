@@ -1,2 +1,4 @@
 sources:
+  maven-dependency-tree-3.3.0.tar.gz: fdbee5d9bdd635dd3db88aba617238ab4cf70722
+removed_sources:
   maven-dependency-tree-2.1-source-release.zip: d4b476053c9b111c0a8c0431b69b6db769ea9f01
